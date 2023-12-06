@@ -1,9 +1,10 @@
-import numpy as np
-import warnings
 import pprint
 import sys
-from .video_info import run_async, release_process, get_num_NVIDIA_GPUs
+import warnings
 
+import numpy as np
+
+from .video_info import get_num_NVIDIA_GPUs, release_process, run_async
 
 IN_COLAB = "google.colab" in sys.modules
 
@@ -49,14 +50,16 @@ class FFmpegWriter:
         return vid
 
     def _init_video_stream(self):
-        bitrate_str = f'-b:v {self.bitrate} ' if self.bitrate else ''
-        self.ffmpeg_cmd = (f'ffmpeg -y -loglevel warning ' 
-                f'-f rawvideo -pix_fmt {self.pix_fmt} -s {self.width}x{self.height} -r {self.fps} -i pipe: '
-                f'{bitrate_str} '
-                f'-r {self.fps} -c:v {self.codec} -pix_fmt yuv420p "{self.filename}"')
+        bitrate_str = f"-b:v {self.bitrate} " if self.bitrate else ""
+        self.ffmpeg_cmd = (
+            f"ffmpeg -y -loglevel warning "
+            f"-f rawvideo -pix_fmt {self.pix_fmt} -s {self.width}x{self.height} -r {self.fps} -i pipe: "
+            f"{bitrate_str} "
+            f'-r {self.fps} -c:v {self.codec} -bf 0 -crf 20 -pix_fmt yuv420p "{self.filename}"'
+        )
         self.process = run_async(self.ffmpeg_cmd)
 
-    def write(self, img:np.ndarray):
+    def write(self, img: np.ndarray):
         if self.waitInit:
             if self.size is None:
                 self.size = (img.shape[1], img.shape[0])
@@ -116,11 +119,13 @@ class FFmpegWriterNV(FFmpegWriter):
         return vid
 
     def _init_video_stream(self):
-        bitrate_str = f'-b:v {self.bitrate} ' if self.bitrate else ''
-        default_preset = 'default' if IN_COLAB else 'p2'
-        self.preset = getattr(self, 'preset', default_preset)
-        self.ffmpeg_cmd = (f'ffmpeg -y -loglevel warning '
-            f'-f rawvideo -pix_fmt {self.pix_fmt} -s {self.width}x{self.height} -r {self.fps} -i pipe: '
-            f'-preset {self.preset} {bitrate_str} '
-            f'-r {self.fps} -gpu {self.gpu} -c:v {self.codec} -pix_fmt yuv420p "{self.filename}"')
+        bitrate_str = f"-b:v {self.bitrate} " if self.bitrate else ""
+        default_preset = "default" if IN_COLAB else "p2"
+        self.preset = getattr(self, "preset", default_preset)
+        self.ffmpeg_cmd = (
+            f"ffmpeg -y -loglevel warning "
+            f"-f rawvideo -pix_fmt {self.pix_fmt} -s {self.width}x{self.height} -r {self.fps} -i pipe: "
+            f"-preset {self.preset} {bitrate_str} "
+            f'-r {self.fps} -gpu {self.gpu} -c:v {self.codec} -pix_fmt yuv420p "{self.filename}"'
+        )
         self.process = run_async(self.ffmpeg_cmd)
